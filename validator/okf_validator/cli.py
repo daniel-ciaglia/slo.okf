@@ -158,6 +158,31 @@ def _run_visualize(args: argparse.Namespace) -> int:
     return 0
 
 
+def _run_index(args: argparse.Namespace) -> int:
+    from .index import check_indexes, write_indexes
+
+    bundle_root = args.bundle_dir.resolve()
+    if not bundle_root.is_dir():
+        print(f"error: {bundle_root} is not a directory", file=sys.stderr)
+        return 2
+
+    if args.check:
+        stale = check_indexes(bundle_root)
+        for path in stale:
+            print(f"stale: {path.relative_to(bundle_root)}", file=sys.stderr)
+        if stale:
+            print(f"\n{len(stale)} index.md file(s) missing or out of date", file=sys.stderr)
+            return 1
+        print("all index.md files up to date", file=sys.stderr)
+        return 0
+
+    written = write_indexes(bundle_root)
+    for path in written:
+        print(f"wrote {path.relative_to(bundle_root)}", file=sys.stderr)
+    print(f"\n{len(written)} index.md file(s) written", file=sys.stderr)
+    return 0
+
+
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="okf-validator",
@@ -202,6 +227,16 @@ def _parser() -> argparse.ArgumentParser:
         help="display name for the bundle (default: bundle directory name)",
     )
 
+    index = sub.add_parser(
+        "index",
+        help="Generate index.md files for progressive disclosure (OKF spec §6).",
+    )
+    index.add_argument("bundle_dir", type=Path, help="path to the OKF bundle root")
+    index.add_argument(
+        "--check", action="store_true",
+        help="don't write; exit 1 if any index.md is missing or out of date",
+    )
+
     return parser
 
 
@@ -212,6 +247,8 @@ def main(argv: list[str] | None = None) -> int:
         return _run_validate(args)
     if args.command == "review":
         return _run_review(args)
+    if args.command == "index":
+        return _run_index(args)
     return _run_visualize(args)
 
 

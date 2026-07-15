@@ -6,7 +6,7 @@ An [Open Knowledge Format](https://github.com/GoogleCloudPlatform/knowledge-cata
 
 - **[VOCABULARY.md](VOCABULARY.md)** — the controlled vocabulary: 9 concept types, frontmatter fields, typed-relationship conventions, cardinality rules. Read this before adding a concept.
 - **[bundle/](bundle/)** — the actual OKF bundle, one worked example (a checkout journey) end to end. Start at [bundle/index.md](bundle/index.md).
-- **[validator/](validator/)** — a Python CLI, `okf-validator`, with a `validate` subcommand (checks `bundle/` against `VOCABULARY.md`), a `review` subcommand (flags concepts overdue for re-review; see "Reviewing staleness" below), and a `visualize` subcommand (renders `bundle/` as a self-contained HTML graph view; see "Visualizing the bundle" below).
+- **[validator/](validator/)** — a Python CLI, `okf-validator`, with a `validate` subcommand (checks `bundle/` against `VOCABULARY.md`), a `review` subcommand (flags concepts overdue for re-review; see "Reviewing staleness" below), a `visualize` subcommand (renders `bundle/` as a self-contained HTML graph view; see "Visualizing the bundle" below), and an `index` subcommand (generates `index.md` files per the OKF spec's §6; see "Generating index.md files" below).
 - **[generators/](generators/)** — Terraform and ArgoCD generator mapping sketches (design docs, not implemented).
 
 ## What's missing
@@ -114,6 +114,26 @@ edges here come from this project's own typed-relationship frontmatter fields (`
 still rendered and made clickable, so both signals are visible. `viz.html` is a generated artifact
 (gitignored), not something to hand-edit or commit.
 
+## Generating index.md files
+
+The OKF spec's §6 says an `index.md` MAY appear in any directory, enumerating that directory's
+contents for progressive disclosure, and that producers MAY generate it automatically. Google's
+own reference implementation does this as a post-step of its agentic bundle-authoring pipeline
+(LLM-synthesized one-line blurb for subdirectories with more than one child). `okf-validator`'s
+`index` subcommand is a deterministic port: same per-directory, per-type grouping and relative-link
+format, but no LLM call — a subdirectory's description is reused only when it has exactly one
+entry with a description, and left blank otherwise.
+
+```sh
+cd validator
+.venv/bin/okf-validator index ../bundle --check   # exit 1 if any index.md is missing or stale
+.venv/bin/okf-validator index ../bundle           # write/overwrite every index.md the bundle needs
+```
+
+`bundle/index.md` in this repo is currently hand-authored (project blurb + curated links, not a
+plain type-grouped listing) — running `index` without `--check` will overwrite it with the
+generated form, so it hasn't been run against the real bundle here yet.
+
 ## Relevant links
 
 - [Open Knowledge Format Spec](https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/okf)
@@ -142,5 +162,6 @@ Following Google's code, I provide this repo under the [Apache 2.0](https://www.
 - Validator: field pass + graph pass implemented, smoke-tested against deliberately broken input (type-mismatch, cardinality, broken-link all caught correctly). Not fuzzed, not exercised against adversarial frontmatter.
 - Review: `okf-validator review` implemented and unit-tested (day/month intervals, month-overflow clamping, `reviewed`-absent fallback to `created`, missing-basis and bad-interval reporting); the checkout bundle is confirmed clean as of its `created`/`reviewed` date.
 - Viewer: `okf-validator visualize` implemented and tested against the checkout bundle; renders the typed-relationship graph, not a markdown-link reconstruction of it.
+- Index: `okf-validator index` implemented and unit-tested (per-type grouping, relative links, single-child description reuse, `--check` mode); not yet run against the real `bundle/`, whose root `index.md` is still hand-authored.
 - Generators: mapping sketches only. No Terraform or ArgoCD generator has been written.
 - CI: not wired up. Run the validator or `pytest` manually before pushing.

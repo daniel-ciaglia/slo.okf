@@ -22,6 +22,21 @@ file's overall module shape and template placeholder tokens
   solutions within this repository are provided under the Apache 2.0
   license."
 
+## `validator/okf_validator/index.py`
+
+A deterministic port of Google's OKF reference implementation's `index.md`
+generator: same per-directory, per-type grouping and relative-link format.
+It's built on this project's own concept discovery (`graph.discover_concepts`)
+rather than Google's `OKFDocument`, and drops the LLM-synthesized
+subdirectory blurb -- a subdirectory description is reused only when it has
+exactly one entry with a description, left blank otherwise.
+
+- **Source**: [`GoogleCloudPlatform/knowledge-catalog`](https://github.com/GoogleCloudPlatform/knowledge-catalog), `okf/src/reference_agent/bundle/index.py`
+- **Copyright**: Google LLC
+- **License**: Apache License 2.0 -- per that repository's own README: "All
+  solutions within this repository are provided under the Apache 2.0
+  license."
+
 Per Apache License 2.0 §4(a), a full copy of the license follows.
 
 ---
