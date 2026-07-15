@@ -1,8 +1,7 @@
 """Runs the validator against the checkout pilot bundle in strict mode.
 
 This is the practical CI substitute while Gitea Actions/Woodpecker wiring is
-deferred (see PLAN.md) -- `pytest` is the thing a contributor is expected to
-run before pushing.
+deferred -- `pytest` is the thing a contributor is expected to run before pushing.
 """
 
 from __future__ import annotations

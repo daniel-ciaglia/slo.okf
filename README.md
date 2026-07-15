@@ -1,13 +1,30 @@
 # slo.okf
 
-An [Open Knowledge Format](https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/okf) (OKF) convention for documenting SRE customer journeys — SLI/SLO/alert/runbook chains — so an oncall human or agent can navigate from "what's breaking" to "what do I do about it" in a few hops. Borrows [OpenSLO](https://github.com/OpenSLO/OpenSLO)'s object model as a naming donor and [KCP](https://github.com/Cantara/knowledge-context-protocol)'s temporal-validity field names, without depending on either.
+An [Open Knowledge Format](https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/okf) (OKF) convention for documenting SRE customer journeys, SLI/SLO/alert/runbook chains, so an oncall human or agent can navigate from "what's breaking" to "what do I do about it" in a few hops. Borrows [OpenSLO](https://github.com/OpenSLO/OpenSLO)'s object model as a naming donor and [KCP](https://github.com/Cantara/knowledge-context-protocol)'s temporal-validity field names, without depending on either.
 
 ## What's here
 
 - **[VOCABULARY.md](VOCABULARY.md)** — the controlled vocabulary: 9 concept types, frontmatter fields, typed-relationship conventions, cardinality rules. Read this before adding a concept.
 - **[bundle/](bundle/)** — the actual OKF bundle, one worked example (a checkout journey) end to end. Start at [bundle/index.md](bundle/index.md).
-- **[validator/](validator/)** — a Python CLI, `okf-validator`, with a `validate` subcommand (checks `bundle/` against `VOCABULARY.md`) and a `visualize` subcommand (renders `bundle/` as a self-contained HTML graph view; see "Visualizing the bundle" below).
+- **[validator/](validator/)** — a Python CLI, `okf-validator`, with a `validate` subcommand (checks `bundle/` against `VOCABULARY.md`), a `review` subcommand (flags concepts overdue for re-review; see "Reviewing staleness" below), and a `visualize` subcommand (renders `bundle/` as a self-contained HTML graph view; see "Visualizing the bundle" below).
 - **[generators/](generators/)** — Terraform and ArgoCD generator mapping sketches (design docs, not implemented).
+
+## What's missing
+
+The biggest risk in a huge pile of writeup is the immediate start of aging after saving.
+By adopting certain frontmatter fields I hope to counter this; ideally there is a review process, even better the sources are code and text is generated. 
+
+_(from [VOCABULARY.md](VOCABULARY.md]) section "2. Cross-cutting frontmatter fields")_
+
+| Field | Type | Meaning |
+|---|---|---|
+| `created` | date (`YYYY-MM-DD`) | When the concept was first authored. |
+| `reviewed` | date (`YYYY-MM-DD`) | Last time a human confirmed this is still accurate. **Attestation, not correctness** — see §3. |
+| `review_interval` | string (`<N>d` / `<N>mo`) | Expected cadence between reviews, e.g. `90d`. Used to flag `reviewed` going stale. |
+
+The validator's `review` subcommand computes which concepts are due, so nothing has to be
+tracked by hand — see "Reviewing staleness" below. Whether the content is *still correct*, only
+the reviewer knows ;-)
 
 ## Where the checkout example's SRE patterns come from
 
@@ -28,7 +45,10 @@ here is this project's own choice of illustration, applying the same patterns.
 
 ## Why the bundle is a subdirectory, not the repo root
 
-OKF's own convention treats a bundle's root `index.md` as the natural entry point, which argues for putting it at the repo root. But this repo also needs project docs (`VOCABULARY.md`, `README.md`) and tooling (`validator/`, `generators/`) that are emphatically *not* concepts — and the validator's core invariant is "every non-reserved `.md` file in the bundle has `type` frontmatter."
+OKF's own convention treats a bundle's root `index.md` as the natural entry point, which argues for putting it at the
+repo root. But this repo also needs project docs (`VOCABULARY.md`, `README.md`) and tooling (`validator/`, `generators/`)
+that are emphatically *not* concepts — and the validator's core invariant is "every non-reserved `.md` file in the bundle
+has `type` frontmatter."
 
 ## Running the validator
 
@@ -39,13 +59,39 @@ python3 -m venv .venv
 .venv/bin/okf-validator validate ../bundle --strict
 ```
 
-Default mode prints issues and exits 0 (OKF's own conformance rules are permissive by design). `--strict` exits 1 on any error-severity issue — this is our producer-side CI discipline, deliberately stricter than what OKF requires of consumers (see `VOCABULARY.md` §5). Add `--json` for machine-readable output.
+Default mode prints issues and exits 0 (OKF's own conformance rules are permissive by design). `--strict` exits 1 on any
+error-severity issue — this is our producer-side CI discipline, deliberately stricter than what OKF requires of consumers
+(see `VOCABULARY.md` §5). Add `--json` for machine-readable output.
+
+**Please note**, the validator checks links and back-links between eg. Journey and Sub-systems and enforces the inherit
+loose coupling of free text.
 
 Run the test suite (validates the checkout bundle as a regression guard, since CI wiring is deferred):
 
 ```sh
 .venv/bin/pytest
 ```
+
+## Reviewing staleness
+
+`okf-validator`'s `review` subcommand walks every concept in the bundle and, for each one that
+declares a `review_interval` (`VOCABULARY.md` §2), computes whether it's due: `reviewed` plus
+the interval, compared against today. If `reviewed` is absent, `created` is used as the starting
+point instead — a concept that's never been formally reviewed is still aging from the day it was
+written. Concepts with no `review_interval` at all aren't subject to a review cadence and are
+skipped.
+
+```sh
+cd validator
+.venv/bin/okf-validator review ../bundle --strict
+```
+
+Default mode prints a status line per concept (`ok` / `OVERDUE`, its due date, and which field the
+due date was computed from) and exits 0. `--strict` exits 1 if anything is overdue, or if a
+concept sets `review_interval` but has neither `reviewed` nor `created` to compute a due date
+from (so a due date genuinely can't be determined) — same producer-side CI discipline as
+`validate --strict`. Add `--json` for machine-readable output, or `--as-of YYYY-MM-DD` to check
+staleness as of a date other than today.
 
 ## Visualizing the bundle
 
@@ -68,6 +114,14 @@ edges here come from this project's own typed-relationship frontmatter fields (`
 still rendered and made clickable, so both signals are visible. `viz.html` is a generated artifact
 (gitignored), not something to hand-edit or commit.
 
+## Relevant links
+
+- [Open Knowledge Format Spec](https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/okf)
+- [OpenSLO](https://github.com/OpenSLO/OpenSLO)
+- [KCP](https://github.com/Cantara/knowledge-context-protocol)
+- A replik upon release of PKF by KCP founder Thor Henning Hetland [Google's Open Knowledge Format and the problems it deliberately doesn't solve](https://wiki.totto.org/blog/2026/06/17/googles-open-knowledge-format-and-the-problems-it-deliberately-doesnt-solve/)
+
+
 ## Third-party code
 
 `validator/okf_validator/viewer/` (`viz.css`, `viz.html`, `viz.js`, and to a lesser extent
@@ -78,10 +132,15 @@ this repository are provided under the [Apache 2.0](https://www.apache.org/licen
 license." See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for which files, what changed, and
 the full license text.
 
+## Licence
+
+Following Google's code, I provide this repo under the [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0) license.
+
 ## Status
 
 - Vocabulary: drafted, not yet exercised by a second journey.
 - Validator: field pass + graph pass implemented, smoke-tested against deliberately broken input (type-mismatch, cardinality, broken-link all caught correctly). Not fuzzed, not exercised against adversarial frontmatter.
+- Review: `okf-validator review` implemented and unit-tested (day/month intervals, month-overflow clamping, `reviewed`-absent fallback to `created`, missing-basis and bad-interval reporting); the checkout bundle is confirmed clean as of its `created`/`reviewed` date.
 - Viewer: `okf-validator visualize` implemented and tested against the checkout bundle; renders the typed-relationship graph, not a markdown-link reconstruction of it.
 - Generators: mapping sketches only. No Terraform or ArgoCD generator has been written.
 - CI: not wired up. Run the validator or `pytest` manually before pushing.

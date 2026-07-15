@@ -148,7 +148,7 @@ Fields not listed in §2 (cross-cutting) or §3 (typed relationships). `resource
 
 ---
 
-## Sources consulted (verified directly, not taken from secondary summaries)
+## Sources consulted
 
 - OKF spec: `github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md`
 - OpenSLO: `github.com/OpenSLO/OpenSLO` (README + spec files, v1 fields; v2alpha explicitly unstable, not cited)

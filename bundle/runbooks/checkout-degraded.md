@@ -51,6 +51,6 @@ Triggered by either [checkout error budget burn](../alerts/checkout-error-budget
 
 ## Known limitations of this runbook
 
-This is a pilot bundle (see [PLAN.md](../../PLAN.md)) — these steps are illustrative, not drawn from a
+This is a pilot bundle — these steps are illustrative, not drawn from a
 real incident history. Treat as a starting structure to fill in with real postmortem-derived steps,
 not as tested guidance.

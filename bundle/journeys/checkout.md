@@ -30,7 +30,7 @@ The path: cart → payment → confirmation. Three [subsystems](../subsystems/) 
 
 ## Why this journey matters
 
-This is the only journey in the pilot bundle (see [PLAN.md](../../PLAN.md) — the kill criterion is
+This is the only journey in the pilot bundle — the kill criterion is
 "if sync overhead exceeds retrieval value, stop"), chosen because it's the shortest path from
 "a customer is trying to give us money" to "we failed to take it." Any oncall engineer following
 [index.md](../index.md) into this journey should end up at the right
