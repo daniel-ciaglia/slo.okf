@@ -13,6 +13,17 @@ from typing import Literal, Optional
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
+def _require_staleness_fields_unless_generated(model: "ConceptBase", type_name: str) -> None:
+    """VOCABULARY.md §2: owner/reviewed/review_interval are required unless generated_by is
+    present (a structurally-derived fact doesn't need a human review cadence)."""
+    if not model.generated_by:
+        missing = [f for f in ("owner", "reviewed", "review_interval") if getattr(model, f) is None]
+        if missing:
+            raise ValueError(
+                f"hand-authored {type_name} (no generated_by) missing required field(s): {', '.join(missing)}"
+            )
+
+
 class ConceptBase(BaseModel):
     """Cross-cutting fields from VOCABULARY.md §2. Producer-defined extra keys are allowed."""
 
@@ -58,13 +69,7 @@ class Subsystem(ConceptBase):
 
     @model_validator(mode="after")
     def _staleness_fields_required_when_hand_authored(self) -> "Subsystem":
-        # generated_by present => structural fact, review cadence is optional (VOCABULARY.md §2)
-        if not self.generated_by:
-            missing = [f for f in ("owner", "reviewed", "review_interval") if getattr(self, f) is None]
-            if missing:
-                raise ValueError(
-                    f"hand-authored Subsystem (no generated_by) missing required field(s): {', '.join(missing)}"
-                )
+        _require_staleness_fields_unless_generated(self, "Subsystem")
         return self
 
 
@@ -110,9 +115,11 @@ class SLO(ConceptBase):
     target: str
     time_window: str
     journey: Optional[str] = None
-    owner: str
-    reviewed: date
-    review_interval: str
+
+    @model_validator(mode="after")
+    def _staleness_fields_required_when_hand_authored(self) -> "SLO":
+        _require_staleness_fields_unless_generated(self, "SLO")
+        return self
 
 
 class Alert(ConceptBase):
@@ -125,9 +132,11 @@ class Alert(ConceptBase):
     runbook: str
     notify: Optional[str] = None
     condition_summary: Optional[str] = None
-    owner: str
-    reviewed: date
-    review_interval: str
+
+    @model_validator(mode="after")
+    def _staleness_fields_required_when_hand_authored(self) -> "Alert":
+        _require_staleness_fields_unless_generated(self, "Alert")
+        return self
 
 
 class Runbook(ConceptBase):

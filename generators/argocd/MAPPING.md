@@ -1,6 +1,18 @@
 # ArgoCD ApplicationSet → OKF mapping sketch
 
-**Status: sketch, not implemented.** Same shape as `../terraform/MAPPING.md` — read that one first for the shared determinism/merge-boundary rules, which this doesn't repeat.
+**Status: sketch, not implemented.** This was originally written as "same shape as
+`../terraform/MAPPING.md`, read that one first for the shared determinism/merge-boundary rules."
+That's no longer true: the Terraform generator moved from parsing `terraform show -json` to a
+module called at the definition site (`../terraform/modules/okf-subsystem/`, see
+`../terraform/MAPPING.md`), which has no ArgoCD equivalent yet — there's no natural
+"module called from the thing being defined" analogue for an ApplicationSet the way there is
+for a Terraform resource, since the generator here still means parsing the *generator's
+resolved output*, not something authored inline. This doc is therefore self-contained below
+rather than deferring to Terraform's.
+
+Whether ArgoCD should eventually get its own definition-site approach (e.g. an annotation or
+label on the `Application`/`ApplicationSet` manifest itself, read back the same way Terraform's
+module reads the OKF:FREETEXT markers) is an open question, not decided here.
 
 ## Input
 
@@ -35,4 +47,24 @@ argocd-okf generate --applicationset resolved.json --out subsystems/
 
 ## Determinism & merge boundary
 
-Identical to `../terraform/MAPPING.md`: `generated_by: argocd-okf@<version>`, frontmatter fully rewritten from the resolved ApplicationSet output each run, body seeded once and never touched again, `check`/`generate` split, content-hash-gated `timestamp` bumps, stale-not-deleted handling when an Application disappears from the generator output.
+Every generated `Subsystem` file carries `generated_by: argocd-okf@<version>` (VOCABULARY.md §4):
+
+- Concept IDs are slugged deterministically from the `Application`'s resolved identity (e.g.
+  cluster/name), never from a random/incremental counter. Output is sorted by concept ID before
+  writing, so the same generator-output input always produces byte-identical output.
+- **Frontmatter**: fully rewritten from the resolved ApplicationSet output each run — no
+  hand-edits to a generated `Subsystem`'s frontmatter survive a regeneration, by design.
+- **Body**: written once on first creation (a stub description referencing the `Application`),
+  then never touched again — same "seed once, hand-authored notes survive forever after"
+  guarantee as VOCABULARY.md §4 describes generally, here implemented by the generator script
+  simply refusing to touch the body region on any run after the first, rather than the
+  marker-based read-back-and-preserve mechanism `okf-subsystem` uses (see the note above on why
+  this generator doesn't have a definition-site equivalent yet).
+- `timestamp` is **not** stamped from wall-clock time on every run — it only advances when the
+  generated frontmatter actually changes (content-hash comparison before write): `argocd-okf
+  check` diffs against the source and exits non-zero on drift without writing; `argocd-okf
+  generate` is the one that actually writes.
+- An `Application` that disappears from the generator's resolved output does not silently
+  delete its `Subsystem` file (that would break inbound links from hand-authored
+  `CustomerJourney`s). Instead `argocd-okf check` flags it as "stale — no longer in generator
+  output" so a human decides whether to delete it or mark `valid_until`.

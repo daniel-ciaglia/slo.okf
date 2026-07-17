@@ -7,7 +7,10 @@ An [Open Knowledge Format](https://github.com/GoogleCloudPlatform/knowledge-cata
 - **[VOCABULARY.md](VOCABULARY.md)** — the controlled vocabulary: 9 concept types, frontmatter fields, typed-relationship conventions, cardinality rules. Read this before adding a concept.
 - **[bundle/](bundle/)** — the actual OKF bundle, one worked example (a checkout journey) end to end. Start at [bundle/index.md](bundle/index.md).
 - **[validator/](validator/)** — a Python CLI, `okf-validator`, with a `validate` subcommand (checks `bundle/` against `VOCABULARY.md`), a `review` subcommand (flags concepts overdue for re-review; see "Reviewing staleness" below), a `visualize` subcommand (renders `bundle/` as a self-contained HTML graph view; see "Visualizing the bundle" below), and an `index` subcommand (generates `index.md` files per the OKF spec's §6; see "Generating index.md files" below).
-- **[generators/](generators/)** — Terraform and ArgoCD generator mapping sketches (design docs, not implemented).
+- **[generators/](generators/)** — Terraform generator: working module prototypes for 7 of the
+  9 vocabulary types (`generators/terraform/modules/okf-<type>/`), see "Documenting
+  infrastructure with Terraform" below. ArgoCD generator: still a mapping sketch, not
+  implemented.
 
 ## What's missing
 
@@ -130,9 +133,48 @@ cd validator
 .venv/bin/okf-validator index ../bundle           # write/overwrite every index.md the bundle needs
 ```
 
-`bundle/index.md` in this repo is currently hand-authored (project blurb + curated links, not a
-plain type-grouped listing) — running `index` without `--check` will overwrite it with the
-generated form, so it hasn't been run against the real bundle here yet.
+## Documenting infrastructure with Terraform
+
+`generators/terraform/modules/okf-<type>/` are Terraform modules — one each for `Subsystem`,
+`DataSource`, `Service`, `Metric`, `SLI`, `SLO`, and `Alert` — that write/update one concept
+file, called directly from the Terraform code that defines the thing being documented (a
+network, database, service, telemetry source, or — if a team's monitoring is itself Terraform,
+e.g. Datadog's provider — a metric/indicator/objective/alert), at the point a human is already
+looking at and reasoning about that resource, rather than reverse-engineering topology from
+`terraform show -json` after the fact. `CustomerJourney` and `Runbook` deliberately have no
+module — VOCABULARY.md §4 states they're permanently hand-authored, and a module would
+contradict that.
+
+```hcl
+module "cart_service_subsystem" {
+  source = "path/to/slo.okf/generators/terraform/modules/okf-subsystem"
+
+  bundle_root = "/path/to/slo.okf/bundle"
+  id          = "cart-service"
+  title       = "Cart Service"
+  resource    = "git@example.com:acme/cart-service.git"
+  owner       = "checkout-team"
+  journeys    = ["journeys/checkout"]
+  freetext    = "Owns cart state until checkout hands off to payment-service."
+}
+```
+
+Frontmatter is fully owned by the module and rewritten every `terraform apply`; the free-text
+body is wrapped in `OKF:FREETEXT` markers and, once the file exists, a human can edit that prose
+directly and it survives regeneration — the module reads it back off disk rather than
+overwriting it. `created`/`timestamp` are stamped via the `hashicorp/time` provider's
+`time_static`, keyed off a content hash, so a no-op `terraform apply` produces no diff and no
+timestamp bump. All seven modules share that marker-preserve/timestamp logic via two internal
+modules (`generators/terraform/modules/internal/`) rather than duplicating it — see
+`generators/terraform/modules/okf-subsystem/README.md` for the full contract,
+`generators/terraform/examples/` for worked examples (one per type, each reproducing a real
+`bundle/` file), and `generators/terraform/MAPPING.md` for the design rationale (including the
+state-parsing approach originally sketched there, kept as "alternatives considered", and why
+`CustomerJourney`/`Runbook` are excluded).
+
+Not yet adopted for the real `bundle/` above, and not yet wired into any real infra codebase —
+see the modules' READMEs for open questions (notably: who has write/commit access to this repo
+when the calling Terraform lives elsewhere).
 
 ## Relevant links
 
@@ -163,5 +205,5 @@ Following Google's code, I provide this repo under the [Apache 2.0](https://www.
 - Review: `okf-validator review` implemented and unit-tested (day/month intervals, month-overflow clamping, `reviewed`-absent fallback to `created`, missing-basis and bad-interval reporting); the checkout bundle is confirmed clean as of its `created`/`reviewed` date.
 - Viewer: `okf-validator visualize` implemented and tested against the checkout bundle; renders the typed-relationship graph, not a markdown-link reconstruction of it.
 - Index: `okf-validator index` implemented and unit-tested (per-type grouping, relative links, single-child description reuse, `--check` mode); not yet run against the real `bundle/`, whose root `index.md` is still hand-authored.
-- Generators: mapping sketches only. No Terraform or ArgoCD generator has been written.
+- Generators: Terraform — 7 module prototypes (`Subsystem`, `DataSource`, `Service`, `Metric`, `SLI`, `SLO`, `Alert`) implemented and verified (rendered, validated against `okf_validator`'s real pydantic models, idempotent from first apply, hand-edit-preserving, fail safe on corrupted markers), sharing marker-preserve/timestamp logic via internal modules; `CustomerJourney`/`Runbook` deliberately excluded (VOCABULARY.md §4); not yet adopted for the real `bundle/`. ArgoCD — mapping sketch only, no generator written.
 - CI: not wired up. Run the validator or `pytest` manually before pushing.
