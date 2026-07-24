@@ -7,28 +7,26 @@ module "address" {
 }
 
 locals {
-  module_version = "0.2.0"
+  module_version = "0.4.0"
   generated_by   = "terraform-okf-subsystem@${local.module_version}"
 
   filename = module.address.filename
 
   owner_line       = var.owner != "" ? "owner: ${var.owner}" : ""
   description_line = var.description != "" ? "description: ${var.description}" : ""
-  service_line     = var.service != "" ? "service: ${var.service}" : ""
   tags_line        = length(var.tags) > 0 ? "tags: [${join(", ", var.tags)}]" : ""
-  journeys_block = length(var.journeys) > 0 ? join(
-    "\n", concat(["journeys:"], [for j in var.journeys : "  - ${j}"])
-  ) : ""
+  services_block = join(
+    "\n", concat(["services:"], [for s in var.services : "  - ${s}"])
+  )
 
   render_vars = {
     title            = var.title
     resource         = var.resource
+    services_block   = local.services_block
     generated_by     = local.generated_by
     description_line = local.description_line
     owner_line       = local.owner_line
-    service_line     = local.service_line
     tags_line        = local.tags_line
-    journeys_block   = local.journeys_block
     freetext         = trimspace(var.freetext)
     human_notes      = module.freetext.resolved_freetext
   }

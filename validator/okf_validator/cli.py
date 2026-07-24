@@ -6,7 +6,14 @@ import sys
 from datetime import date
 from pathlib import Path
 
-from .graph import Issue, check_backref_symmetry, check_graph, check_supersedes_cycles, discover_concepts
+from .graph import (
+    Issue,
+    check_backref_symmetry,
+    check_graph,
+    check_service_parent_cycles,
+    check_supersedes_cycles,
+    discover_concepts,
+)
 
 
 def _print_human(concepts: dict, issues: list[Issue], bundle_root: Path) -> None:
@@ -45,7 +52,13 @@ def _run_validate(args: argparse.Namespace) -> int:
         return 2
 
     concepts, issues = discover_concepts(bundle_root)
-    issues = issues + check_graph(concepts) + check_backref_symmetry(concepts) + check_supersedes_cycles(concepts)
+    issues = (
+        issues
+        + check_graph(concepts)
+        + check_backref_symmetry(concepts)
+        + check_supersedes_cycles(concepts)
+        + check_service_parent_cycles(concepts)
+    )
     issues.sort(key=lambda i: (str(i.path), i.line))
 
     if args.json:

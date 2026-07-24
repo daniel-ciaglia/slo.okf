@@ -25,8 +25,8 @@ Triggered by either [checkout error budget burn](../alerts/checkout-error-budget
 - Check the [checkout API availability SLI](../slis/checkout-availability.md) and
   [payment latency SLI](../slis/payment-latency.md) dashboards for the current burn rate.
 - Is this checkout-wide, or isolated to one subsystem? Check
-  [checkout-api](../subsystems/checkout-api.md), [payment-service](../subsystems/payment-service.md),
-  and [cart-service](../subsystems/cart-service.md) individually.
+  [checkout-api](../services/checkout-api.md), [payment-service](../services/payment-service.md),
+  and [cart-service](../services/cart-service.md) individually.
 
 ## 2. If payment-service is the bottleneck
 
@@ -38,8 +38,8 @@ Triggered by either [checkout error budget burn](../alerts/checkout-error-budget
 
 ## 3. If checkout-api or cart-service is the bottleneck
 
-- Check recent deploys to [checkout-api](../subsystems/checkout-api.md) or
-  [cart-service](../subsystems/cart-service.md) — a bad rollout is the most common cause of a fast
+- Check recent deploys to [checkout-api](../services/checkout-api.md) or
+  [cart-service](../services/cart-service.md) — a bad rollout is the most common cause of a fast
   burn (1h window, 14.4x).
 - Roll back the most recent deploy if the timing correlates.
 

@@ -30,7 +30,17 @@ variable "title" {
 
 variable "description" {
   type        = string
-  description = "VOCABULARY.md §6 Service: optional. Service is pure grouping — it has no fields of its own beyond this."
+  description = "VOCABULARY.md §6 Service: optional."
+  default     = ""
+}
+
+variable "resource" {
+  type        = string
+  description = <<-EOT
+    Cross-cutting optional field (VOCABULARY.md §2) -- not required for Service (§6 only
+    requires title), but commonly used for "the repo this service deploys from," matching
+    real bundle/services/*.md usage since the v0.2.0 migration.
+  EOT
   default     = ""
 }
 
@@ -51,7 +61,47 @@ variable "slos" {
   description = <<-EOT
     VOCABULARY.md §3: Service.slos, 0+, forward link to SLO concept IDs grouped under this
     service. Stated explicitly by the human calling the module — same "never invented,
-    always stated by whoever's at the call site" rule as Subsystem's journeys/service.
+    always stated by whoever's at the call site" rule as Subsystem.services.
+  EOT
+  default     = []
+}
+
+variable "subsystems" {
+  type        = list(string)
+  description = <<-EOT
+    VOCABULARY.md §3 (v0.2.0): informational back-ref to Subsystem concept IDs that list
+    this Service in their `services` field (a Subsystem can list more than one Service if
+    it's shared, e.g. a Redis instance backing two independently-owned services). The
+    matching Subsystem.services entry still needs to be hand-authored (or supplied via that
+    Subsystem's own okf-subsystem module call) to satisfy rule 9's symmetry check -- this
+    module doesn't write both sides of the link.
+  EOT
+  default     = []
+}
+
+variable "journeys" {
+  type        = list(string)
+  description = <<-EOT
+    VOCABULARY.md §3 (v0.2.0): informational back-ref to CustomerJourney concept IDs that
+    list this Service in their `services` field. Same "human states it, matching forward
+    field still needs hand-authoring" rule as `subsystems` above and Subsystem's old
+    `journeys` input pre-v0.2.0.
+  EOT
+  default     = []
+}
+
+variable "parent" {
+  type        = string
+  description = "VOCABULARY.md §3 (v0.2.0): optional link to a parent Service concept ID (0 or 1), for nesting one Service under another."
+  default     = ""
+}
+
+variable "children" {
+  type        = list(string)
+  description = <<-EOT
+    VOCABULARY.md §3 (v0.2.0): informational back-ref to child Service concept IDs whose
+    `parent` points at this Service. Same hand-authored-symmetry rule as `subsystems`/
+    `journeys` above.
   EOT
   default     = []
 }

@@ -35,12 +35,21 @@ ConceptMap = dict[str, ConceptEntry]
 
 # (concept type, field name) -> (target type, cardinality, required)
 # cardinality: "one" | "many"
+#
+# Ordering matters: for any pair also listed in MIRROR_FIELDS below, the
+# primary/forward entry must appear before its back-ref entry. The viewer
+# (viewer/generator.py) relies on processing RELATIONSHIPS in this exact
+# order to dedupe a mirrored pair into a single edge -- getting the order
+# backwards silently produces a duplicate edge instead of an error.
 RELATIONSHIPS: dict[tuple[str, str], tuple[str, str, bool]] = {
     ("CustomerJourney", "slos"): ("SLO", "many", True),
-    ("CustomerJourney", "subsystems"): ("Subsystem", "many", False),
+    ("CustomerJourney", "services"): ("Service", "many", False),
+    ("Subsystem", "services"): ("Service", "many", True),
     ("Service", "slos"): ("SLO", "many", False),
-    ("Subsystem", "journeys"): ("CustomerJourney", "many", False),
-    ("Subsystem", "service"): ("Service", "one", False),
+    ("Service", "subsystems"): ("Subsystem", "many", False),
+    ("Service", "journeys"): ("CustomerJourney", "many", False),
+    ("Service", "parent"): ("Service", "one", False),
+    ("Service", "children"): ("Service", "many", False),
     ("Metric", "data_source"): ("DataSource", "one", False),
     ("SLI", "data_source"): ("DataSource", "one", False),
     ("SLO", "sli"): ("SLI", "one", True),
@@ -50,15 +59,18 @@ RELATIONSHIPS: dict[tuple[str, str], tuple[str, str, bool]] = {
     ("Runbook", "alerts"): ("Alert", "many", False),
 }
 
-# Three fields above are declared "informational back-ref" in VOCABULARY.md
+# Several fields above are declared "informational back-ref" in VOCABULARY.md
 # §3 -- they restate, from the other end, a relationship a forward field
-# already declares (e.g. `Subsystem.journeys` mirrors
-# `CustomerJourney.subsystems`). Nothing else checks that both sides agree,
-# so they can silently drift; see check_backref_symmetry. Mapping is
-# (primary/forward type, field) -> (back-ref type, field).
+# already declares (e.g. `Service.subsystems` mirrors `Subsystem.services`).
+# Nothing else checks that both sides agree, so they can silently drift; see
+# check_backref_symmetry. Mapping is (primary/forward type, field) ->
+# (back-ref type, field). `Service.parent`/`children` mirror each other
+# within the same type, which check_backref_symmetry handles the same way.
 MIRROR_FIELDS: dict[tuple[str, str], tuple[str, str]] = {
     ("CustomerJourney", "slos"): ("SLO", "journey"),
-    ("CustomerJourney", "subsystems"): ("Subsystem", "journeys"),
+    ("CustomerJourney", "services"): ("Service", "journeys"),
+    ("Subsystem", "services"): ("Service", "subsystems"),
+    ("Service", "parent"): ("Service", "children"),
     ("Alert", "runbook"): ("Runbook", "alerts"),
 }
 
@@ -148,7 +160,6 @@ def _check_target(
 
 def check_graph(concepts: ConceptMap) -> list[Issue]:
     issues: list[Issue] = []
-    referenced_subsystems: set[str] = set()
 
     for cid, (concept, parsed, path) in concepts.items():
         type_name = concept.type
@@ -173,8 +184,6 @@ def check_graph(concepts: ConceptMap) -> list[Issue]:
                     )
                 for target_id in ids:
                     _check_target(issues, concepts, path, parsed, cid, field_name, target_id, target_type)
-                    if target_type == "Subsystem":
-                        referenced_subsystems.add(target_id)
             else:
                 if required and not value:
                     issues.append(
@@ -189,13 +198,6 @@ def check_graph(concepts: ConceptMap) -> list[Issue]:
                     )
                 elif value:
                     _check_target(issues, concepts, path, parsed, cid, field_name, value, target_type)
-                    if target_type == "Subsystem":
-                        referenced_subsystems.add(value)
-                    # Subsystem.service points *at* its Service (reverse of the usual
-                    # "referenced by" direction) -- declaring group membership also
-                    # counts as "not orphaned" per VOCABULARY.md rule 6.
-                    if (type_name, field_name) == ("Subsystem", "service"):
-                        referenced_subsystems.add(cid)
 
         # SLI ratio_metric.{good,total} / threshold_metric -> Metric (nested, not in RELATIONSHIPS table)
         if type_name == "SLI":
@@ -207,20 +209,6 @@ def check_graph(concepts: ConceptMap) -> list[Issue]:
                 _check_target(
                     issues, concepts, path, parsed, cid, "threshold_metric", concept.threshold_metric, "Metric"
                 )
-
-    # Rule 6: no orphaned Subsystem
-    for cid, (concept, parsed, path) in concepts.items():
-        if concept.type == "Subsystem" and cid not in referenced_subsystems:
-            issues.append(
-                Issue(
-                    path,
-                    parsed.fm_start_line,
-                    cid,
-                    "orphan",
-                    "Subsystem is not referenced by any CustomerJourney.subsystems or Service.slos->...",
-                    "error",
-                )
-            )
 
     return issues
 
@@ -292,7 +280,10 @@ def check_backref_symmetry(concepts: ConceptMap) -> list[Issue]:
     return issues
 
 
-def check_supersedes_cycles(concepts: ConceptMap) -> list[Issue]:
+def _check_self_reference_cycles(concepts: ConceptMap, field_name: str, rule: str) -> list[Issue]:
+    """Generic single-valued self-reference cycle detector -- shared by
+    `supersedes` (any type, VOCABULARY.md §2) and `Service.parent`
+    (VOCABULARY.md §3/rule 7)."""
     issues: list[Issue] = []
     visiting: set[str] = set()
     visited: set[str] = set()
@@ -301,13 +292,13 @@ def check_supersedes_cycles(concepts: ConceptMap) -> list[Issue]:
         if cid in visiting:
             cycle = " -> ".join([*chain[chain.index(cid) :], cid])
             concept, parsed, path = concepts[cid]
-            issues.append(Issue(path, parsed.fm_start_line, cid, "supersedes-cycle", f"cycle detected: {cycle}", "error"))
+            issues.append(Issue(path, parsed.fm_start_line, cid, rule, f"cycle detected: {cycle}", "error"))
             return
         if cid in visited or cid not in concepts:
             return
         visiting.add(cid)
         concept, parsed, path = concepts[cid]
-        target = getattr(concept, "supersedes", None)
+        target = getattr(concept, field_name, None)
         if target:
             dfs(target, [*chain, cid])
         visiting.discard(cid)
@@ -318,3 +309,11 @@ def check_supersedes_cycles(concepts: ConceptMap) -> list[Issue]:
             dfs(cid, [])
 
     return issues
+
+
+def check_supersedes_cycles(concepts: ConceptMap) -> list[Issue]:
+    return _check_self_reference_cycles(concepts, "supersedes", "supersedes-cycle")
+
+
+def check_service_parent_cycles(concepts: ConceptMap) -> list[Issue]:
+    return _check_self_reference_cycles(concepts, "parent", "service-parent-cycle")

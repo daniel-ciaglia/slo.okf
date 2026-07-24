@@ -12,12 +12,7 @@ ${owner_line}
 %{~ if tags_line != "" }
 ${tags_line}
 %{~ endif }
-%{~ if service_line != "" }
-${service_line}
-%{~ endif }
-%{~ if journeys_block != "" }
-${journeys_block}
-%{~ endif }
+${services_block}
 created: ${created}
 timestamp: "${timestamp}"
 ---

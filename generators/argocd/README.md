@@ -1,10 +1,10 @@
 # ArgoCD ApplicationSet → OKF mapping sketch
 
 **Status: sketch, not implemented.** This was originally written as "same shape as
-`../terraform/MAPPING.md`, read that one first for the shared determinism/merge-boundary rules."
+`../terraform/README.md`, read that one first for the shared determinism/merge-boundary rules."
 That's no longer true: the Terraform generator moved from parsing `terraform show -json` to a
 module called at the definition site (`../terraform/modules/okf-subsystem/`, see
-`../terraform/MAPPING.md`), which has no ArgoCD equivalent yet — there's no natural
+`../terraform/README.md`), which has no ArgoCD equivalent yet — there's no natural
 "module called from the thing being defined" analogue for an ApplicationSet the way there is
 for a Terraform resource, since the generator here still means parsing the *generator's
 resolved output*, not something authored inline. This doc is therefore self-contained below
@@ -43,7 +43,7 @@ argocd-okf generate --applicationset resolved.json --out subsystems/
 
 - ApplicationSet generator-matrix entries (e.g. a matrix of `{cluster} × {service}`) → cross-links between the `Subsystem` concepts they produce, when the matrix itself encodes a dependency (e.g. a canary/stable pairing).
 - `Application.spec.source` pointing at the same repo/module as a Terraform-generated `Subsystem` → cross-link the two (deployment-layer `Subsystem` ↔ infra-layer `Subsystem`) so a reader can walk from "what's running" to "what it runs on." Requires the Terraform and ArgoCD generators to agree on a shared ID-slugging convention for the same underlying resource — call this out explicitly as a coordination point if both generators are ever built, not something to solve speculatively now.
-- Same rule as Terraform: **never invents `CustomerJourney` links** — a generated `Subsystem` starts unreferenced; a human wires it into a journey.
+- Same rule as Terraform: **never invents `Service` links** — a generated `Subsystem` starts unreferenced. VOCABULARY.md v0.2.0 requires every `Subsystem` to declare exactly one `service`, so this can't stay unreferenced the way it could pre-v0.2.0; a human states that link explicitly, same convention as `../terraform/modules/okf-subsystem`'s `var.service`. Reaching a `CustomerJourney` is now two hops away (`Subsystem.service` → `Service`, then a human wires that `Service` into a journey via `CustomerJourney.services`), not something this generator states directly.
 
 ## Determinism & merge boundary
 
@@ -65,6 +65,7 @@ Every generated `Subsystem` file carries `generated_by: argocd-okf@<version>` (V
   check` diffs against the source and exits non-zero on drift without writing; `argocd-okf
   generate` is the one that actually writes.
 - An `Application` that disappears from the generator's resolved output does not silently
-  delete its `Subsystem` file (that would break inbound links from hand-authored
-  `CustomerJourney`s). Instead `argocd-okf check` flags it as "stale — no longer in generator
-  output" so a human decides whether to delete it or mark `valid_until`.
+  delete its `Subsystem` file (that would break inbound links from hand-authored `Service`
+  concepts listing it in their `subsystems` back-ref). Instead `argocd-okf check` flags it as
+  "stale — no longer in generator output" so a human decides whether to delete it or mark
+  `valid_until`.

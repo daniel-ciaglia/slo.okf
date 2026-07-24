@@ -1,5 +1,5 @@
 ---
-type: Subsystem
+type: Service
 title: Checkout API
 description: Public-facing API that orchestrates cart-service and payment-service to complete an order.
 resource: git@example.com:acme/checkout-api.git

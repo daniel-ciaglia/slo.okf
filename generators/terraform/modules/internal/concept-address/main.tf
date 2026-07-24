@@ -1,6 +1,6 @@
 # Internal module, not meant to be called directly by end users — shared by every
 # okf-<type> module so the "every concept type lives one level under bundle_root"
-# directory-layout convention (MAPPING.md) is expressed in exactly one place instead
+# directory-layout convention (README.md) is expressed in exactly one place instead
 # of being restated (and kept in sync) across all seven okf-<type> modules.
 
 locals {

@@ -7,25 +7,41 @@ module "address" {
 }
 
 locals {
-  module_version = "0.1.0"
+  module_version = "0.2.0"
   generated_by   = "terraform-okf-service@${local.module_version}"
 
   filename = module.address.filename
 
   description_line = var.description != "" ? "description: ${var.description}" : ""
+  resource_line    = var.resource != "" ? "resource: ${var.resource}" : ""
   owner_line       = var.owner != "" ? "owner: ${var.owner}" : ""
   tags_line        = length(var.tags) > 0 ? "tags: [${join(", ", var.tags)}]" : ""
+  parent_line      = var.parent != "" ? "parent: ${var.parent}" : ""
   slos_block = length(var.slos) > 0 ? join(
     "\n", concat(["slos:"], [for s in var.slos : "  - ${s}"])
+  ) : ""
+  subsystems_block = length(var.subsystems) > 0 ? join(
+    "\n", concat(["subsystems:"], [for s in var.subsystems : "  - ${s}"])
+  ) : ""
+  journeys_block = length(var.journeys) > 0 ? join(
+    "\n", concat(["journeys:"], [for j in var.journeys : "  - ${j}"])
+  ) : ""
+  children_block = length(var.children) > 0 ? join(
+    "\n", concat(["children:"], [for c in var.children : "  - ${c}"])
   ) : ""
 
   render_vars = {
     title            = var.title
     generated_by     = local.generated_by
     description_line = local.description_line
+    resource_line    = local.resource_line
     owner_line       = local.owner_line
     tags_line        = local.tags_line
     slos_block       = local.slos_block
+    subsystems_block = local.subsystems_block
+    journeys_block   = local.journeys_block
+    parent_line      = local.parent_line
+    children_block   = local.children_block
     freetext         = trimspace(var.freetext)
     human_notes      = module.freetext.resolved_freetext
   }

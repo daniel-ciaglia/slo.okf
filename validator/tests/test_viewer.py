@@ -192,12 +192,12 @@ def test_raises_when_bundle_missing(tmp_path: Path):
 def test_checkout_pilot_bundle_visualizes_cleanly(tmp_path: Path):
     out = tmp_path / "viz.html"
     stats = generate_visualization(BUNDLE_ROOT, out, bundle_name="Checkout pilot")
-    assert stats["concepts"] == 15
+    assert stats["concepts"] == 16
     assert stats["issues"] == 0
-    # 26 raw relationship fields minus 7 informational back-refs
-    # (Subsystem.journeys x3, SLO.journey x2, Runbook.alerts x2) that mirror
+    # 28 raw relationship fields minus 8 informational back-refs (SLO.journey x2,
+    # Service.journeys x3, Service.subsystems x1, Runbook.alerts x2) that mirror
     # a forward field already producing the same edge.
-    assert stats["edges"] == 19
+    assert stats["edges"] == 20
 
 
 def test_backref_fields_do_not_duplicate_their_forward_edge(tmp_path: Path):
@@ -215,8 +215,8 @@ def test_backref_fields_do_not_duplicate_their_forward_edge(tmp_path: Path):
         review_interval: 90d
         slos:
           - slos/availability
-        subsystems:
-          - subsystems/cart-service
+        services:
+          - services/cart-service
         ---
         Body.
         """,
@@ -263,15 +263,11 @@ def test_backref_fields_do_not_duplicate_their_forward_edge(tmp_path: Path):
         """,
     )
     _write(
-        bundle / "subsystems" / "cart-service.md",
+        bundle / "services" / "cart-service.md",
         """
         ---
-        type: Subsystem
+        type: Service
         title: Cart service
-        resource: services/cart
-        owner: cart-team
-        reviewed: 2026-07-15
-        review_interval: 90d
         journeys:
           - journeys/checkout
         ---
@@ -285,6 +281,6 @@ def test_backref_fields_do_not_duplicate_their_forward_edge(tmp_path: Path):
     # Only the forward-field edges should appear -- not their back-ref mirrors.
     assert ("journeys/checkout", "slos/availability") in pairs
     assert ("slos/availability", "journeys/checkout") not in pairs
-    assert ("journeys/checkout", "subsystems/cart-service") in pairs
-    assert ("subsystems/cart-service", "journeys/checkout") not in pairs
-    assert len(data["edges"]) == 4  # slos, subsystems, sli, threshold_metric -- no duplicates
+    assert ("journeys/checkout", "services/cart-service") in pairs
+    assert ("services/cart-service", "journeys/checkout") not in pairs
+    assert len(data["edges"]) == 4  # slos, services, sli, threshold_metric -- no duplicates

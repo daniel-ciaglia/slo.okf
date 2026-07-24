@@ -17,7 +17,7 @@ Structural differences:
   re-parse.
 - `runbook` is a reference to an existing `Runbook` concept ID, not something this module ever
   creates — `Runbook` stays permanently hand-authored (VOCABULARY.md §4), same reasoning that
-  ruled out an `okf-runbook`/`okf-customerjourney` module entirely (see `../../MAPPING.md`).
+  ruled out an `okf-runbook`/`okf-customerjourney` module entirely (see `../../README.md`).
 - Same `owner`/`reviewed`/`review_interval` note as `okf-slo`: technically optional once
   `generated_by` is set, but an alert's severity/meaning is human judgment, not a
   structurally-derived fact — consider setting them anyway.

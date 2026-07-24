@@ -56,24 +56,14 @@ variable "tags" {
   default     = []
 }
 
-variable "service" {
-  type        = string
-  description = "VOCABULARY.md §3: optional link to a Service concept ID (0 or 1)."
-  default     = ""
-}
-
-variable "journeys" {
+variable "services" {
   type        = list(string)
-  description = <<-EOT
-    VOCABULARY.md §3: informational back-ref to CustomerJourney concept IDs.
-    MAPPING.md's rule that a generator never *invents* CustomerJourney links still
-    holds here — this is not the module inferring anything, it's the human calling
-    the module (who is placing it at the network/database/service definition and
-    knows which journey it serves) stating the same fact the corresponding
-    CustomerJourney.subsystems entry must also state, to satisfy rule 9's
-    symmetry check.
-  EOT
-  default     = []
+  description = "VOCABULARY.md §3: required, >=1 Service concept ID(s) this Subsystem belongs to. Usually one; more than one is legitimate when a single piece of infra (e.g. a shared Redis instance) backs more than one independently-owned Service."
+
+  validation {
+    condition     = length(var.services) > 0
+    error_message = "services must have at least one entry — VOCABULARY.md requires every Subsystem to belong to at least one Service."
+  }
 }
 
 variable "freetext" {

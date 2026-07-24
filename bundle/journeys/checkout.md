@@ -13,17 +13,17 @@ tags: [checkout, revenue-critical]
 slos:
   - slos/checkout-availability-slo
   - slos/payment-latency-slo
-subsystems:
-  - subsystems/cart-service
-  - subsystems/payment-service
-  - subsystems/checkout-api
+services:
+  - services/cart-service
+  - services/payment-service
+  - services/checkout-api
 ---
 
 # Checkout
 
-The path: cart → payment → confirmation. Three [subsystems](../subsystems/) carry it —
-[cart-service](../subsystems/cart-service.md), [payment-service](../subsystems/payment-service.md), and
-[checkout-api](../subsystems/checkout-api.md) — and its health is tracked by two SLOs:
+The path: cart → payment → confirmation. Three [services](../services/) carry it —
+[cart-service](../services/cart-service.md), [payment-service](../services/payment-service.md), and
+[checkout-api](../services/checkout-api.md) — and its health is tracked by two SLOs:
 
 - [Checkout API availability](../slos/checkout-availability-slo.md) — is the checkout API up and answering successfully?
 - [Payment latency](../slos/payment-latency-slo.md) — is payment fast enough that customers don't abandon their cart?

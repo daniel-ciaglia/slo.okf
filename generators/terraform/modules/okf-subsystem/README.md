@@ -3,7 +3,7 @@
 A Terraform module that writes/updates one OKF `Subsystem` concept file, called from
 wherever in an infra codebase a network, database, or service is actually defined —
 instead of reverse-engineering topology from `terraform show -json` after the fact
-(see `../../MAPPING.md`, whose state-parsing approach this module is an alternative to).
+(see `../../README.md`, whose state-parsing approach this module is an alternative to).
 
 ## Contract
 
@@ -33,35 +33,40 @@ instead of reverse-engineering topology from `terraform show -json` after the fa
 - `generated_by: terraform-okf-subsystem@<version>` is stamped automatically
   (VOCABULARY.md §4); `owner`/`reviewed`/`review_interval` are therefore optional
   (VOCABULARY.md §2, `models.py`'s `Subsystem` validator).
-- This module **never invents `CustomerJourney` links** — `var.journeys` is what the
-  human calling the module states explicitly (they're placing the call at the resource
-  that serves that journey and know this), not something inferred. The matching
-  `CustomerJourney.subsystems` entry still needs to be hand-authored on the journey
-  side to satisfy VOCABULARY.md rule 9's back-ref symmetry check.
+- **`var.services` is required, >=1 entry, not optional** (v0.2.0 tightened `Subsystem.service`
+  from `0 or 1` to exactly `1`, then widened it to `Subsystem.services` (1+) once a real bundle
+  needed one `Subsystem` — a shared Redis instance, say — to back more than one independently-owned
+  `Service`; see VOCABULARY.md's Changelog). A `Subsystem` with no `Service` still doesn't
+  validate, so this module fails at plan time (`validation` block) rather than writing a file the
+  field pass would reject anyway.
+- **No `journeys` input** (removed in v0.2.0 — `Subsystem.journeys` no longer exists in the
+  vocabulary; a journey now reaches infrastructure via `CustomerJourney.services` →
+  `Service`, not through individual `Subsystem`s). If you're migrating a pre-v0.2.0 call to
+  this module, drop `journeys = [...]` and add the required `services = [...]` instead.
 
 ## Example
 
-See `../../examples/cart-service/` — a stand-in Terraform module call reproducing
-`bundle/subsystems/cart-service.md`'s content as if it were generated at the point
-the cart service's infrastructure is defined, writing into a local `output/` (not the
-real `bundle/`, which stays hand-authored until this module is adopted for real).
+See `../../examples/cart-service-redis/` — a stand-in Terraform module call reproducing
+`bundle/subsystems/cart-service-redis.md`'s content as if it were generated at the point
+the cache is defined, writing into a local `output/` (not the real `bundle/`, which stays
+hand-authored until this module is adopted for real).
 
 ```hcl
-module "cart_service_subsystem" {
+module "cart_service_redis_subsystem" {
   source = "path/to/modules/okf-subsystem"
 
   bundle_root = "/path/to/slo.okf/bundle"
-  id          = "cart-service"
+  id          = "cart-service-redis"
 
-  title       = "Cart Service"
-  description = "Stores and mutates the customer's shopping cart before checkout begins."
-  resource    = "git@example.com:acme/cart-service.git"
+  title       = "Cart Service Redis"
+  description = "Session/cart-state cache backing cart-service."
+  resource    = "module.cart_service.aws_elasticache_replication_group.session_cache"
+  services    = ["services/cart-service"]
 
-  owner    = "checkout-team"
-  tags     = ["checkout"]
-  journeys = ["journeys/checkout"]
+  owner = "checkout-team"
+  tags  = ["checkout", "redis"]
 
-  freetext = "Owns cart state until checkout hands off to payment-service."
+  freetext = "Holds in-progress cart state so a page reload mid-checkout doesn't lose the customer's cart."
 }
 ```
 
@@ -72,13 +77,13 @@ input, so you don't hand-type relative paths or IDs and risk getting them wrong:
 
 - **`concept_id`** — bundle-root-relative ID, no `.md` (e.g. `"subsystems/cart-service"`).
   This project's convention for **frontmatter typed-relationship fields**
-  (`VOCABULARY.md §3`: `journeys`, `service`, `data_source`, `sli`, `slo`, `runbook`, `slos`,
+  (`VOCABULARY.md §3`: `journeys`, `services`, `data_source`, `sli`, `slo`, `runbook`, `slos`,
   etc.), matching `okf_validator`'s `concept_id_for()` exactly. **Not an OKF spec
   requirement** — OKF itself has no typed-relationship vocabulary at all ("link semantics
   live entirely in prose," `VOCABULARY.md §3`); this ID format is this project's own
   invention, only enforced by this project's own validator.
 - **`md_link`** — a ready-to-paste **Markdown prose link** using the concept's `title` as
-  link text (e.g. `"[Cart Service](../subsystems/cart-service.md)"`), for the *body*
+  link text (e.g. `"[Cart Service Redis](../subsystems/cart-service-redis.md)"`), for the *body*
   freetext, not frontmatter. Assumes the link is written from a concept file in a
   *different* top-level bundle directory (the common case, since every type lives one
   level under `bundle_root`); for a same-directory link, strip the `"../<dir>/"` prefix
@@ -87,30 +92,36 @@ input, so you don't hand-type relative paths or IDs and risk getting them wrong:
   brackets/title, for when you want custom link text instead of the concept's `title`.
 
 ```hcl
-module "payment_service_subsystem" {
+module "cart_service_postgres_subsystem" {
   source      = "path/to/modules/okf-subsystem"
   bundle_root = local.bundle_root
-  id          = "payment-service"
-  title       = "Payment Service"
-  resource    = "git@example.com:acme/payment-service.git"
-  freetext    = "Handles payment processing."
+  id          = "cart-service-postgres"
+  title       = "Cart Service Postgres"
+  resource    = "module.cart_service.aws_db_instance.cart_state"
+  services    = ["services/cart-service"]
+  freetext    = "Durable store cart-service falls back to when the Redis cache misses."
 }
 
-module "cart_service_subsystem" {
+module "cart_service_redis_subsystem" {
   source      = "path/to/modules/okf-subsystem"
   bundle_root = local.bundle_root
-  id          = "cart-service"
-  title       = "Cart Service"
-  resource    = "git@example.com:acme/cart-service.git"
-  # payment-service.md is in the same directory, so strip the "../subsystems/" prefix:
-  freetext    = "Hands off to ${replace(module.payment_service_subsystem.md_link, "../subsystems/", "")}."
+  id          = "cart-service-redis"
+  title       = "Cart Service Redis"
+  resource    = "module.cart_service.aws_elasticache_replication_group.session_cache"
+  services    = ["services/cart-service"]
+  # cart-service-postgres.md is in the same directory, so strip the "../subsystems/" prefix:
+  freetext    = "Falls back to ${replace(module.cart_service_postgres_subsystem.md_link, "../subsystems/", "")} on a cache miss."
 }
 ```
 
-**Bidirectional links work with no dependency cycle.** `../../examples/cart-service/`
-demonstrates cart-service and payment-service linking to *each other* in prose, both
-directions wired via `md_link`, verified to apply cleanly and stay idempotent. This works
-because `concept_id`/`md_link`/`relative_path` are pure functions of a module's own
+**Bidirectional links work with no dependency cycle.** The pair above (illustrative —
+`cart-service-postgres` isn't in the real `bundle/`, only `cart-service-redis` is)
+demonstrates two `Subsystem`s linking to *each other* in prose, both directions wired via
+`md_link`, applying cleanly and staying idempotent — the same property
+`../../examples/cart-service-redis/`'s predecessor verified before the v0.2.0 migration
+retired the `okf-subsystem`-typed `cart-service`/`payment-service` example pair (both are
+`Service`s now — see `../okf-service/README.md`'s own bidirectional-link example instead).
+This works because `concept_id`/`md_link`/`relative_path` are pure functions of a module's own
 `var.title`/`var.id` — never derived from `local_file`/`time_static` or any other resource
 inside the module — so neither module's output actually depends on the other module's
 resources being created first, even though the *values* reference each other.
@@ -141,6 +152,6 @@ markers-intact precondition.
   infra code calling this module, whoever runs `terraform apply` needs write and
   commit access to the bundle repo too. Not addressed by this prototype.
 - **`CustomerJourney`/`Runbook`**: deliberately not built — VOCABULARY.md §4 states these are
-  permanently hand-authored; see `../../MAPPING.md`'s "Types this doesn't cover".
+  permanently hand-authored; see `../../README.md`'s "Types this doesn't cover".
 - **`valid_from`/`valid_until`/`supersedes`**: no `okf-<type>` module supports these
   cross-cutting fields yet (VOCABULARY.md §2).

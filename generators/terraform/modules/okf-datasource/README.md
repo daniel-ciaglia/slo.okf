@@ -5,7 +5,7 @@ concept type using this pattern, alongside `../okf-subsystem/`. Same contract, s
 internal engine (`../internal/freetext-marker`, `../internal/timestamps`); see
 `../okf-subsystem/README.md` for the full write-up of that contract, not repeated here.
 
-The one structural difference from `okf-subsystem`: `DataSource` has no `journeys`/`service`
+The one structural difference from `okf-subsystem`: `DataSource` has no `journeys`/`services`
 typed-relationship fields of its own (VOCABULARY.md §3 — those are Subsystem-specific;
 `DataSource` is pointed *at* by `Metric.data_source`/`SLI.data_source`, it doesn't point
 anywhere itself), so this module's variable set is correspondingly smaller: `bundle_root`,

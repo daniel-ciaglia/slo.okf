@@ -37,6 +37,6 @@ output "md_link" {
     Ready-to-paste Markdown link (title as link text) for cross-linking this concept
     from another module's freetext, e.g.
     freetext = "Backs $${module.checkout_availability_slo.md_link}. If this fires, go to
-    the checkout degraded runbook (hand-authored — Runbook has no module, see ../../MAPPING.md)."
+    the checkout degraded runbook (hand-authored — Runbook has no module, see ../../README.md)."
   EOT
 }

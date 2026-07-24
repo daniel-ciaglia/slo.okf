@@ -4,6 +4,9 @@ title: ${title}
 %{~ if description_line != "" }
 ${description_line}
 %{~ endif }
+%{~ if resource_line != "" }
+${resource_line}
+%{~ endif }
 generated_by: ${generated_by}
 %{~ if owner_line != "" }
 ${owner_line}
@@ -13,6 +16,18 @@ ${tags_line}
 %{~ endif }
 %{~ if slos_block != "" }
 ${slos_block}
+%{~ endif }
+%{~ if subsystems_block != "" }
+${subsystems_block}
+%{~ endif }
+%{~ if journeys_block != "" }
+${journeys_block}
+%{~ endif }
+%{~ if parent_line != "" }
+${parent_line}
+%{~ endif }
+%{~ if children_block != "" }
+${children_block}
 %{~ endif }
 created: ${created}
 timestamp: "${timestamp}"

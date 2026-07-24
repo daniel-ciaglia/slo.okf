@@ -26,7 +26,7 @@ plan`/docs generation, not just this README.
 
 `models.py`'s `SLO` validator now relaxes these to optional once `generated_by` is present
 (this prototype's other modules already had this; `SLO`/`Alert` didn't until this module was
-built — see the models.py fix noted in `../../MAPPING.md`). But consider setting them anyway
+built — see the models.py fix noted in `../../README.md`). But consider setting them anyway
 for SLOs specifically: the reason VOCABULARY.md §2 relaxes staleness review for generated
 concepts is "a structurally-derived fact doesn't need a human review cadence" — and per the
 rule above, an SLO's content here is never a structurally-derived fact, it's the same human

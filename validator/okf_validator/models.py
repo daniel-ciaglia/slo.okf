@@ -51,21 +51,24 @@ class CustomerJourney(ConceptBase):
     title: str
     description: str
     slos: list[str] = Field(min_length=1)
-    subsystems: list[str] = Field(default_factory=list)
+    services: list[str] = Field(default_factory=list)
 
 
 class Service(ConceptBase):
     type: Literal["Service"]
     title: str
     slos: list[str] = Field(default_factory=list)
+    subsystems: list[str] = Field(default_factory=list)
+    journeys: list[str] = Field(default_factory=list)
+    parent: Optional[str] = None
+    children: list[str] = Field(default_factory=list)
 
 
 class Subsystem(ConceptBase):
     type: Literal["Subsystem"]
     title: str
     resource: str
-    journeys: list[str] = Field(default_factory=list)
-    service: Optional[str] = None
+    services: list[str] = Field(min_length=1)
 
     @model_validator(mode="after")
     def _staleness_fields_required_when_hand_authored(self) -> "Subsystem":

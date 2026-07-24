@@ -8,8 +8,8 @@ output "concept_id" {
   description = <<-EOT
     Bundle-root-relative concept ID, no ".md" — this project's convention for frontmatter
     typed-relationship fields (VOCABULARY.md §3), matching okf_validator's
-    concept_id_for() exactly. Paste directly into e.g. Subsystem.service on another
-    concept: service = module.checkout_service.concept_id.
+    concept_id_for() exactly. Paste directly into e.g. Subsystem.services on another
+    concept: services = [module.checkout_service.concept_id].
     Not an OKF spec requirement — OKF itself has no typed-relationship vocabulary, this ID
     format is this project's own.
   EOT

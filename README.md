@@ -4,7 +4,7 @@ An [Open Knowledge Format](https://github.com/GoogleCloudPlatform/knowledge-cata
 
 ## What's here
 
-- **[VOCABULARY.md](VOCABULARY.md)** — the controlled vocabulary: 9 concept types, frontmatter fields, typed-relationship conventions, cardinality rules. Read this before adding a concept.
+- **[VOCABULARY.md](VOCABULARY.md)** — the controlled vocabulary: 9 concept types, frontmatter fields, typed-relationship conventions, cardinality rules. Read this before adding a concept. Currently v0.2.0 — see its Changelog section for what changed and why.
 - **[bundle/](bundle/)** — the actual OKF bundle, one worked example (a checkout journey) end to end. Start at [bundle/index.md](bundle/index.md).
 - **[validator/](validator/)** — a Python CLI, `okf-validator`, with a `validate` subcommand (checks `bundle/` against `VOCABULARY.md`), a `review` subcommand (flags concepts overdue for re-review; see "Reviewing staleness" below), a `visualize` subcommand (renders `bundle/` as a self-contained HTML graph view; see "Visualizing the bundle" below), and an `index` subcommand (generates `index.md` files per the OKF spec's §6; see "Generating index.md files" below).
 - **[generators/](generators/)** — Terraform generator: working module prototypes for 7 of the
@@ -74,6 +74,9 @@ Run the test suite (validates the checkout bundle as a regression guard, since C
 ```sh
 .venv/bin/pytest
 ```
+
+`bundle/` is migrated to v0.2.0's `Service`/`Subsystem` shape (see `bundle/log.md`); the
+Terraform generators are not (see "Documenting infrastructure with Terraform" below).
 
 ## Reviewing staleness
 
@@ -146,16 +149,16 @@ module — VOCABULARY.md §4 states they're permanently hand-authored, and a mod
 contradict that.
 
 ```hcl
-module "cart_service_subsystem" {
+module "cart_service_redis_subsystem" {
   source = "path/to/slo.okf/generators/terraform/modules/okf-subsystem"
 
   bundle_root = "/path/to/slo.okf/bundle"
-  id          = "cart-service"
-  title       = "Cart Service"
-  resource    = "git@example.com:acme/cart-service.git"
+  id          = "cart-service-redis"
+  title       = "Cart Service Redis"
+  resource    = "module.cart_service.aws_elasticache_replication_group.session_cache"
+  service     = "services/cart-service"
   owner       = "checkout-team"
-  journeys    = ["journeys/checkout"]
-  freetext    = "Owns cart state until checkout hands off to payment-service."
+  freetext    = "Holds in-progress cart state so a page reload mid-checkout doesn't lose the customer's cart."
 }
 ```
 
@@ -168,13 +171,19 @@ timestamp bump. All seven modules share that marker-preserve/timestamp logic via
 modules (`generators/terraform/modules/internal/`) rather than duplicating it — see
 `generators/terraform/modules/okf-subsystem/README.md` for the full contract,
 `generators/terraform/examples/` for worked examples (one per type, each reproducing a real
-`bundle/` file), and `generators/terraform/MAPPING.md` for the design rationale (including the
+`bundle/` file), and `generators/terraform/README.md` for the design rationale (including the
 state-parsing approach originally sketched there, kept as "alternatives considered", and why
 `CustomerJourney`/`Runbook` are excluded).
 
 Not yet adopted for the real `bundle/` above, and not yet wired into any real infra codebase —
 see the modules' READMEs for open questions (notably: who has write/commit access to this repo
 when the calling Terraform lives elsewhere).
+
+Migrated to v0.2.0's `Service`/`Subsystem` shape alongside `bundle/` — `okf-subsystem` dropped
+`journeys` and requires `service`; `okf-service` gained `subsystems`/`journeys`/`parent`/
+`children` and an optional `resource`. See `generators/terraform/README.md`'s "Migrated to
+VOCABULARY.md v0.2.0" note for the full list, and `generators/terraform/examples/` for the
+updated worked examples (`checkout-services/`, `cart-service-redis/`, `checkout-platform/`).
 
 ## Relevant links
 
@@ -200,10 +209,10 @@ Following Google's code, I provide this repo under the [Apache 2.0](https://www.
 
 ## Status
 
-- Vocabulary: drafted, not yet exercised by a second journey.
+- Vocabulary: v0.2.0. `bundle/` was the only exercise for v0.1; v0.2.0's `Service`/`Subsystem` rework was driven by building a second, independent bundle in a downstream project, which is what actually stress-tested whether the type boundaries held up. `bundle/` itself is migrated to v0.2.0 — see VOCABULARY.md's Changelog and `bundle/log.md`.
 - Validator: field pass + graph pass implemented, smoke-tested against deliberately broken input (type-mismatch, cardinality, broken-link all caught correctly). Not fuzzed, not exercised against adversarial frontmatter.
 - Review: `okf-validator review` implemented and unit-tested (day/month intervals, month-overflow clamping, `reviewed`-absent fallback to `created`, missing-basis and bad-interval reporting); the checkout bundle is confirmed clean as of its `created`/`reviewed` date.
 - Viewer: `okf-validator visualize` implemented and tested against the checkout bundle; renders the typed-relationship graph, not a markdown-link reconstruction of it.
 - Index: `okf-validator index` implemented and unit-tested (per-type grouping, relative links, single-child description reuse, `--check` mode); not yet run against the real `bundle/`, whose root `index.md` is still hand-authored.
-- Generators: Terraform — 7 module prototypes (`Subsystem`, `DataSource`, `Service`, `Metric`, `SLI`, `SLO`, `Alert`) implemented and verified (rendered, validated against `okf_validator`'s real pydantic models, idempotent from first apply, hand-edit-preserving, fail safe on corrupted markers), sharing marker-preserve/timestamp logic via internal modules; `CustomerJourney`/`Runbook` deliberately excluded (VOCABULARY.md §4); not yet adopted for the real `bundle/`. ArgoCD — mapping sketch only, no generator written.
+- Generators: Terraform — 7 module prototypes (`Subsystem`, `DataSource`, `Service`, `Metric`, `SLI`, `SLO`, `Alert`) implemented and verified (rendered, validated against `okf_validator`'s real pydantic models, idempotent from first apply, hand-edit-preserving, fail safe on corrupted markers), sharing marker-preserve/timestamp logic via internal modules; `CustomerJourney`/`Runbook` deliberately excluded (VOCABULARY.md §4); not yet adopted for the real `bundle/`. Migrated to v0.2.0's `Service`/`Subsystem` shape (`okf-subsystem`: `journeys` dropped, `service` now required; `okf-service`: gained `subsystems`/`journeys`/`parent`/`children`/`resource`) — see `generators/terraform/README.md`. ArgoCD — mapping sketch only, no generator written.
 - CI: not wired up. Run the validator or `pytest` manually before pushing.

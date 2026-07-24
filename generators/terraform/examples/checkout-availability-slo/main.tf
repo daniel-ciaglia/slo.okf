@@ -34,7 +34,7 @@ module "checkout_availability_slo" {
     99.9% allows roughly 43 minutes of full downtime (or a proportionally larger amount of partial
     degradation) per 30-day window before the error budget is exhausted. That's deliberately generous
     relative to a typical 99.95%+ target for pure infra availability — checkout also depends on
-    [payment-service](../subsystems/payment-service.md), an external dependency the checkout team
+    [payment-service](../services/payment-service.md), an external dependency the checkout team
     doesn't fully control, and a target that's frequently breached by factors outside the team's
     control just trains everyone to ignore the alert.
 

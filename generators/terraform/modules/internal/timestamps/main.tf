@@ -4,7 +4,7 @@
 # Set once on first apply, never changes again — VOCABULARY.md's `created`.
 resource "time_static" "created" {}
 
-# Re-stamps only when var.content_hash changes — VOCABULARY.md/MAPPING.md's
+# Re-stamps only when var.content_hash changes — VOCABULARY.md/README.md's
 # "timestamp only advances when the generated frontmatter actually changes" rule,
 # implemented without an external diff/check step.
 resource "time_static" "updated" {
